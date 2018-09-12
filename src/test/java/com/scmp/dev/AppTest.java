@@ -1,69 +1,77 @@
 package com.scmp.dev;
 
-import java.io.File;
-import java.io.Reader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.List;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.scmp.dev.entity.MasterIdKey;
-import com.scmp.dev.entity.MasterIdKeyPK;
-import com.scmp.dev.reporsitory.MasterIdKeyRepositoy;
+import com.ecwid.maleorang.MailchimpClient;
+import com.ecwid.maleorang.MailchimpObject;
+import com.ecwid.maleorang.method.v3_0.members.EditMemberMethod;
+import com.ecwid.maleorang.method.v3_0.members.MemberInfo;
+import com.scmp.dev.entity.CubeMailChimpMember;
+import com.scmp.dev.reporsitory.CubeMailChimpMemberRepository;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class AppTest {
 	
 	@Autowired
-	private MasterIdKeyRepositoy masterIdKeyRepositoy;
+	private CubeMailChimpMemberRepository cubeMailChimpMemberRepository;
 	
 	@Test
-	public void runTest() {
+	public void runTest() throws IOException  {
+		long time2, time1;
 		try{
-			this.insertFromCsv(new File(""));
+			ExecutorService exe = Executors.newFixedThreadPool(50);
+			System.out.println(cubeMailChimpMemberRepository.findAll(PageRequest.of(0, 2500)).getTotalElements());
+			time1 = System.currentTimeMillis();
+			for(int i =0; i <4; i++){
+				Page<CubeMailChimpMember> page = cubeMailChimpMemberRepository.findAll(PageRequest.of(i, 2500));
+				exe.execute(new UploadThread("1b64edce4f", page.getContent()));
+			}
+			exe.shutdown();  
+	        System.out.println("Shutdown");  
+	        while(true){ 
+	            if(exe.isTerminated()){  
+	                System.out.println("Finish");  
+	                break;  
+	            }  
+	            Thread.sleep(1000);    
+	        }
+	        time2 = System.currentTimeMillis();
+			System.out.println("TIME : " + ((time2 - time1) / 1000) + "second");
 		}catch(Exception e){
 			e.printStackTrace();
+		}finally{
+
 		}
-		System.out.println("Finish");
 	}
 
-	public void insertFromCsv(File csvFile) throws Exception {
-		if(!csvFile.exists()){
-			throw new Exception("Can not find Csv File");
+	public void test() throws Exception {
+
+		MailchimpClient client = new MailchimpClient("b7c83c67e56234c851aabce8930b076b-us19");
+		try {
+			EditMemberMethod.CreateOrUpdate psot = new EditMemberMethod.CreateOrUpdate("758ae3fa17", "vasya.pupkin@gmail.com");
+			psot.status = "subscribed";
+			psot.merge_fields = new MailchimpObject();
+			psot.merge_fields.mapping.put("FNAME", "Vasya");
+			psot.merge_fields.mapping.put("LNAME", "Pupkin");
+			psot.merge_fields.mapping.put("LNAME", "Pupkin");
+			MemberInfo member = client.execute(psot);
+            //System.err.println("The user has been successfully subscribed: " + psot);A
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally{
+			client.close();
 		}
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Reader reader = Files.newBufferedReader(Paths.get(csvFile.getPath()));
-		CSVReader csvReader = new CSVReaderBuilder(reader).withSkipLines(1).build();
-        String[] nextRecord;
-        while ((nextRecord = csvReader.readNext()) != null) {
-        	MasterIdKey masterIdKey = new MasterIdKey();
-        	MasterIdKeyPK masterIdKeyPK = new MasterIdKeyPK();
-        	masterIdKeyPK.setFullVisitorId(nextRecord[0]);
-        	masterIdKeyPK.setEmarsysAccountId(nextRecord[1]);
-        	masterIdKeyPK.setEmarsysHashedId(nextRecord[2]);
-        	masterIdKeyPK.setEmarsysUnhashedId(nextRecord[3]);
-        	masterIdKeyPK.setEmarsysCampaignId(nextRecord[4]);
-        	masterIdKeyPK.setIdfa(nextRecord[5]);
-        	masterIdKeyPK.setAdid(nextRecord[6]);
-        	masterIdKeyPK.setCpjobsJobseekerId(nextRecord[7]);
-        	masterIdKeyPK.setCpjobsEmployerId(nextRecord[8]);
-        	masterIdKeyPK.setCpjobsTrackingUserToken(nextRecord[9]);
-        	masterIdKeyPK.setLotameId(nextRecord[10]);
-        	masterIdKey.setMasterIdKeyPK(masterIdKeyPK);
-        	masterIdKey.setDate(sdf.parse(nextRecord[9]));
-        	masterIdKeyRepositoy.save(masterIdKey);
-        }
-		csvReader.close();
-		reader.close();
-		System.gc();
 	}
+	
 }

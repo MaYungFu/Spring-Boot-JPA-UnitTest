@@ -47,6 +47,11 @@
 			<artifactId>opencsv</artifactId>
 			<version>4.0</version>
 		</dependency>
+		<dependency>
+			<groupId>com.ecwid</groupId>
+			<artifactId>maleorang</artifactId>
+			<version>3.0-0.9.1</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>
